@@ -1,5 +1,5 @@
 def simulated_annealing(f, x0, T0=1., C=10., sigma=1., eps=1e-6, 
-                        burn=20, max_count=1000, verbose=False):
+                        burn=20, fs=0.1, max_count=1000, verbose=False):
     """
     Simulaled annealing algorithm.
      
@@ -21,18 +21,27 @@ def simulated_annealing(f, x0, T0=1., C=10., sigma=1., eps=1e-6,
         Temperature after k-th iteration is determined from 
         the following relation: Tk = T0*exp(-k/C).
     sigma: float, default=1.
-        Standard deviation of the Normal distribution for the
-        random walk by which new candidates are generated. 
-        Namely, new candidates (i.e. x-values) are obtained from:
-        x_new = x + N(0,sigma), where N(0,sigma) are the random
-        numbers from the Normal distribution with zero mean and
-        standard deviation of `sigma`.
+        Standard deviation of a statistical distribution for
+        the random walk by which new candidates are generated. 
+        Random numbers are initially drawn from the Student's
+        t-distribution with a low degree of freedom, zero mean 
+        and standard deviation of `sigma`. After the burn-in 
+        period, random numbers are drawn from the Normal 
+        distribution with much lower standard deviation, 
+        i.e. N(0, fs*sigma), where `fs` is the factor by which
+        `sigma` is reduced.
     eps: float, default=1e-6
         Temperature value at which the algorithm is stopped.
     burn: int, default=20
         Number of iterations with the original step size of
-        the random walk from N(0,sigma), after which the step
-        size is reduced by a factor of 10, i.e. N(0,0.1*sigma).
+        the random walk from the Student's t distribution, after
+        which the step size is reduced approximately by a factor
+        of 10 by switching over to the Normal distribution with
+        a lower standard deviation (see parameter `sigma` above).
+    fs: float, default=0.1
+        Factor for reducing the standard deviation of a statisti-
+        cal distributin used for the random walk (see parameter
+        `sigma` above).
     max_count: int, default=1000
         Maximum loop counter for stopping the iterations. It is
         assumed that there is no convergence if the main loop
@@ -75,14 +84,21 @@ def simulated_annealing(f, x0, T0=1., C=10., sigma=1., eps=1e-6,
     generating candidate solutions, (3) acceptance criterion, and 
     (4) temperature schedule (i.e. cooling).
     Perturbation function is a random walk in multi-dimensional
-    space, with random samples drawn from the Normal distribution 
-    N(0,sigma). Step size of the walk is reduced after the burn-in.
-    Acceptance criterion is according to the Boltzman probability
-    and Metropolis algorithm. Temperature schedule is exponential
-    cooling.
+    space, with random samples drawn from the Student's t distri-
+    bution with low degrees of freedom. Step size of the walk is
+    reduced after the burn-in period by switching to the Normal
+    distribution with a lower standard deviation. Acceptance cri-
+    terion is according to the Boltzman probability and Metropolis
+    algorithm. Temperature schedule is exponential cooling.
     """
     from numpy import exp
     from scipy import stats
+
+    # Testing input parameters.
+    if T0 <= 0.:
+        raise ValueError('Initial temperature must be positive.')
+    if fs <= 0. or fs > 1.:
+        raise ValueError('Parameter "fs" must be between 0 and 1.')
 
     # Dimension of the search space.
     N = x0.size
@@ -98,13 +114,19 @@ def simulated_annealing(f, x0, T0=1., C=10., sigma=1., eps=1e-6,
     
     k = 0
     while T > eps:
-        # Generate coordinates from random walk.
+        # Generate coordinates for the random walk.
         if k < burn:
-            # Original step size during burn-in.
-            walk = stats.norm(scale=sigma).rvs(N)
+            # Original step size during the burn-in, from
+            # the Student's t distribution with a low degree
+            # of freedom.
+            walk = stats.t(df=5, loc=0, scale=sigma).rvs(N)
         else:
-            # Reduce step size after temperature cools down.
-            walk = stats.norm(scale=0.1*sigma).rvs(N)
+            # Reduce the step size after temperature cools down
+            # by switching to the Normal distribution with a
+            # lower standard deviation.
+            walk = stats.norm(loc=0, scale=fs*sigma).rvs(N)
+        
+        # Random walk.
         x_new = x + walk
 
         # Compute energy function at new coords.
@@ -162,6 +184,6 @@ if __name__ == "__main__":
         return y
 
     x0 = np.array([4, 4])
-    x, E = simulated_annealing(f, x0)
+    x, E = simulated_annealing(f, x0, eps=1e-5, verbose=True)
     print(f'Coordinates: {x[0]:.4f}, {x[1]:.4f}')
     print(f'Energy func.: {E:.4e}')
