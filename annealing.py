@@ -5,13 +5,17 @@ def simulated_annealing(f, x0, T0=1., C=10., sigma=1., eps=1e-6,
      
     Simulaled annealing with exponential temperature decay. 
     A metaheuristic algorithm commonly used for optimization 
-    problems of black-box functions with large search spaces. 
+    problems of black-box functions (or systems) with large 
+    search spaces.
 
     Parameters
     ----------
     f: function
-        User-supplied external function which describes the 
-        so-called energy function of the system being optimized.
+        User-supplied external function f(x) which describes the 
+        so-called energy function of the system being optimized,
+        where x is a vector. This can also be a black-box func-
+        tion or even a simulation process that takes inputs and 
+        returns a state of the system.
     x0: np.array
         Initial values for the parameters of the energy function.
     T0: float, default=1.
@@ -27,8 +31,8 @@ def simulated_annealing(f, x0, T0=1., C=10., sigma=1., eps=1e-6,
         t-distribution with a low degree of freedom, zero mean 
         and standard deviation of `sigma`. After the burn-in 
         period, random numbers are drawn from the Normal 
-        distribution with much lower standard deviation, 
-        i.e. N(0, fs*sigma), where `fs` is the factor by which
+        distribution with much lower standard deviation, i.e.
+        N(0, fs*sigma), where `fs` is the factor by which
         `sigma` is reduced.
     eps: float, default=1e-6
         Temperature value at which the algorithm is stopped.
@@ -147,25 +151,20 @@ def simulated_annealing(f, x0, T0=1., C=10., sigma=1., eps=1e-6,
                 x = x_new
                 E = E_new
         
+        # Temperature schedule (cooling).
+        T = T0*exp(-k/C)
+
         # Save the best solution.
-        if E_new < E_top:
+        if E < E_top:
             x_top = x_new
             E_top = E_new
 
-        # Temperature schedule.
-        T = T0*exp(-k/C)
-
-        k += 1
-
-        # Early stopping.
-        if abs(E_new) < eps:
-            print(f'Early stopping after {k} iterations.')
-            break
-
-        # Loop counter exceeded without convergence.
+        # Loop counter exceeded without convergence?
         if k > max_count:
             raise StopIteration(
                 f'No convergence after {max_count} iterations.')
+
+        k += 1
     
     if verbose:
         print(f'Final temperature: {T:.3e} after {k} iterations.')
