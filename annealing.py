@@ -1,5 +1,5 @@
 def simulated_annealing(f, x0, T0=1., C=10., sigma=1., eps=1e-8, 
-                        burn=20, fs=0.5, max_count=1000, verbose=False):
+                        burn=20, fs=0.5, verbose=False):
     """
     Simulaled annealing algorithm.
      
@@ -46,10 +46,6 @@ def simulated_annealing(f, x0, T0=1., C=10., sigma=1., eps=1e-8,
         Factor for reducing the standard deviation of a statisti-
         cal distributin used for the random walk (see parameter
         `sigma` above).
-    max_count: int, default=1000
-        Maximum loop counter for stopping the iterations. It is
-        assumed that there is no convergence if the main loop
-        exceeds this counter number and exception is raised.
     verbose: bool, default=False
         Indicator for printing (on stdout) internal messages.
 
@@ -159,11 +155,6 @@ def simulated_annealing(f, x0, T0=1., C=10., sigma=1., eps=1e-8,
             x_top = x_new
             E_top = E_new
 
-        # Loop counter exceeded without convergence?
-        if k > max_count:
-            raise StopIteration(
-                f'No convergence after {max_count} iterations.')
-
         k += 1
     
     if verbose:
@@ -205,10 +196,10 @@ if __name__ == "__main__":
         return f
     
     # Initial point.
-    x0 = np.array([0., 1.])
+    x0 = np.array([2., 2.])
     # Find minimum of the Rosenbrock's function.
     x, E = simulated_annealing(rosenbrock, x0, 
-                               T0=1000., C=20, eps=1e-18, burn=100)
+                               T0=1000., C=20, eps=1e-20, burn=50)
     print('Rosenbrock function [1, 1]:')
     print(f'Coordinates: {x[0]:.4f}, {x[1]:.4f}')
     print(f'Energy func.: {E:.4e}\n')
@@ -218,8 +209,7 @@ if __name__ == "__main__":
     # Find minimum of the Beale's function.
     x, E = simulated_annealing(beale, x0, 
                                T0=1000., C=20., eps=1e-24, 
-                               burn=200, sigma=0.6, max_count=2000, 
-                               verbose=True)
+                               burn=200, sigma=0.6, verbose=True)
     print('Beale function [3, 0.5]:')
     print(f'Coordinates: {x[0]:.4f}, {x[1]:.4f}')
     print(f'Energy func.: {E:.4e}\n')
