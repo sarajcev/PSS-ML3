@@ -1,5 +1,5 @@
-def simulated_annealing(f, x0, T0=1., C=10., sigma=1., eps=1e-6, 
-                        burn=20, fs=0.1, max_count=1000, verbose=False):
+def simulated_annealing(f, x0, T0=1., C=10., sigma=1., eps=1e-8, 
+                        burn=20, fs=0.5, max_count=1000, verbose=False):
     """
     Simulaled annealing algorithm.
      
@@ -123,13 +123,13 @@ def simulated_annealing(f, x0, T0=1., C=10., sigma=1., eps=1e-6,
             # Original step size during the burn-in, from
             # the Student's t distribution with a low degree
             # of freedom.
-            walk = stats.t(df=5, loc=0, scale=sigma).rvs(N)
+            walk = stats.t(df=10, loc=0, scale=sigma).rvs(N)
         else:
             # Reduce the step size after temperature cools down
-            # by switching to the Normal distribution with a
+            # by switching to the Normal distribution with a 
             # lower standard deviation.
-            walk = stats.norm(loc=0, scale=fs*sigma).rvs(N)
-        
+            walk = stats.norm(loc=0, scale=sigma*fs).rvs(N)
+
         # Random walk.
         x_new = x + walk
 
@@ -150,11 +150,11 @@ def simulated_annealing(f, x0, T0=1., C=10., sigma=1., eps=1e-6,
             if r < alpha:
                 x = x_new
                 E = E_new
-        
+
         # Temperature schedule (cooling).
         T = T0*exp(-k/C)
 
-        # Save the best solution.
+        # Save the best solution found thus far.
         if E < E_top:
             x_top = x_new
             E_top = E_new
@@ -175,14 +175,71 @@ def simulated_annealing(f, x0, T0=1., C=10., sigma=1., eps=1e-6,
 
 
 if __name__ == "__main__":
-    """ Test with a simple function. """
+    """ Test with simple benchmark functions. """
     import numpy as np
 
-    def f(x, y):
-        y = (x-1)**2 + (y+1)**2
-        return y
+    def rosenbrock(x, y):
+        # Rosenbrock's function.
+        # Minimum is at [1., 1.].
+        f = (1. - x)**2 + 100.*(y - x**2)**2
+        return f
 
-    x0 = np.array([4, 4])
-    x, E = simulated_annealing(f, x0, eps=1e-5, verbose=True)
+    def beale(x, y):
+        # Beale's function.
+        # Minimum is at [3, 0.5].
+        f = (1.5 - x + x*y)**2 + (2.25 - x + x*y**2) + (2.625 - x + x*y**3)**2
+        return f
+
+    def booth(x, y):
+        # Booth's function.
+        # minimum is at [1, 3].
+        f = (x + 2.*y - 7.)**2 + (2.*x + y - 5.)**2
+        return f
+    
+    def rosenbrock_constrained(x, y):
+        # Rosenbrock function constrained to a disk.
+        if x**2 + y**2 <= 2.:
+            f = rosenbrock(x, y)
+        else:
+            f = 1000.
+        return f
+    
+    # Initial point.
+    x0 = np.array([0., 1.])
+    # Find minimum of the Rosenbrock's function.
+    x, E = simulated_annealing(rosenbrock, x0, 
+                               T0=1000., C=20, eps=1e-18, burn=100)
+    print('Rosenbrock function [1, 1]:')
+    print(f'Coordinates: {x[0]:.4f}, {x[1]:.4f}')
+    print(f'Energy func.: {E:.4e}\n')
+
+    # Initial point.
+    x0 = np.array([0., 0.])
+    # Find minimum of the Beale's function.
+    x, E = simulated_annealing(beale, x0, 
+                               T0=1000., C=20., eps=1e-24, 
+                               burn=200, sigma=0.6, max_count=2000, 
+                               verbose=True)
+    print('Beale function [3, 0.5]:')
+    print(f'Coordinates: {x[0]:.4f}, {x[1]:.4f}')
+    print(f'Energy func.: {E:.4e}\n')
+
+    # Initial point.
+    x0 = np.array([0., 0.])
+    # Find minimum of the Booth's function.
+    x, E = simulated_annealing(booth, x0, 
+                               T0=1000., C=20., eps=1e-18, burn=50)
+    print('Booth function [1, 3]:')
+    print(f'Coordinates: {x[0]:.4f}, {x[1]:.4f}')
+    print(f'Energy func.: {E:.4e}\n')
+
+    # Initial point.
+    x0 = np.array([0., 1.])
+    # Find minimum of the Rosenbrock's function,
+    # subject to constraint (circle): x**2 + y**2 <= 2.
+    x, E = simulated_annealing(rosenbrock_constrained, x0, 
+                               T0=1000., C=20., eps=1e-18, 
+                               burn=100, sigma=0.6, verbose=True)
+    print('Rosenbrock (constrained) function [1, 1]:')
     print(f'Coordinates: {x[0]:.4f}, {x[1]:.4f}')
     print(f'Energy func.: {E:.4e}')
