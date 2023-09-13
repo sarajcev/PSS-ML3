@@ -161,4 +161,15 @@ cython_debug/
 
 # SCV files
 *.csv
+
+# VS Code
 .vscode/settings.json
+
+# PyCharm
+.idea/.gitignore
+.idea/misc.xml
+.gitignore
+.gitignore
+.idea/vcs.xml
+.gitignore
+.idea/modules.xml
