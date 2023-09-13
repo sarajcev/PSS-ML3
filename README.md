@@ -1,2 +1,2 @@
 # PSS-ML3
-Machine Learning in Power System Stability Analysis
+Manifold Learning in Power System Transient Stability Assessment
