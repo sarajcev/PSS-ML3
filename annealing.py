@@ -1,3 +1,7 @@
+from numpy import exp
+from scipy import stats
+
+
 def simulated_annealing(f, x0, T0=1., C=10., sigma=1., eps=1e-8, 
                         burn=20, fs=0.5, verbose=False):
     """
@@ -91,9 +95,6 @@ def simulated_annealing(f, x0, T0=1., C=10., sigma=1., eps=1e-8,
     terion is according to the Boltzman probability and Metropolis
     algorithm. Temperature schedule is exponential cooling.
     """
-    from numpy import exp
-    from scipy import stats
-
     # Testing input parameters.
     if T0 <= 0.:
         raise ValueError('Initial temperature must be positive.')
@@ -113,7 +114,7 @@ def simulated_annealing(f, x0, T0=1., C=10., sigma=1., eps=1e-8,
     E_top = E
     
     k = 0
-    while T > eps:
+    while T >= eps:
         # Generate coordinates for the random walk.
         if k < burn:
             # Original step size during the burn-in, from
@@ -158,7 +159,8 @@ def simulated_annealing(f, x0, T0=1., C=10., sigma=1., eps=1e-8,
         k += 1
     
     if verbose:
-        print(f'Final temperature: {T:.3e} after {k} iterations.')
+        print('Final temperature: {:.3e} after {:d} iterations.'
+              .format(T, k))
     
     print('Optimization successful.')
 
@@ -199,7 +201,8 @@ if __name__ == "__main__":
     x0 = np.array([2., 2.])
     # Find minimum of the Rosenbrock's function.
     x, E = simulated_annealing(rosenbrock, x0, 
-                               T0=1000., C=20, eps=1e-20, burn=50)
+                               T0=1000., C=20, eps=1e-20, burn=50,
+                               verbose=True)
     print('Rosenbrock function [1, 1]:')
     print(f'Coordinates: {x[0]:.4f}, {x[1]:.4f}')
     print(f'Energy func.: {E:.4e}\n')
