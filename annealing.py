@@ -1,7 +1,3 @@
-from numpy import exp
-from scipy import stats
-
-
 def simulated_annealing(f, x0, T0=1., C=10., sigma=1., eps=1e-8, 
                         burn=20, fs=0.5, verbose=False):
     """
@@ -95,6 +91,9 @@ def simulated_annealing(f, x0, T0=1., C=10., sigma=1., eps=1e-8,
     terion is according to the Boltzman probability and Metropolis
     algorithm. Temperature schedule is exponential cooling.
     """
+    from numpy import exp, pi
+    from scipy import stats
+
     # Testing input parameters.
     if T0 <= 0.:
         raise ValueError('Initial temperature must be positive.')
@@ -142,7 +141,7 @@ def simulated_annealing(f, x0, T0=1., C=10., sigma=1., eps=1e-8,
         else:
             r = stats.uniform.rvs()
             # Boltzman probability.
-            alpha = exp(-Delta_E/T)
+            alpha = (2*pi*T)**(-N/2) * exp(-abs(Delta_E)**2/(2*T))
             # Stochastic acceptance.
             if r < alpha:
                 x = x_new
