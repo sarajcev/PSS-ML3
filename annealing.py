@@ -37,28 +37,39 @@ def simulated_annealing(f, x0, bounds=None, T0=1., C=10., sigma=1.,
         Constant decay value of the temperature scheduling.
         Temperature after k-th iteration is determined from 
         the following relation: Tk = T0*exp(-k/C).
-    sigma: float, default=1.
+    sigma: float or list, default=1.
         Standard deviation of a statistical distribution for
         the random walk by which new candidates are generated. 
-        Random numbers are initially drawn from the Student's
-        t-distribution with a low degree of freedom, zero mean 
-        and standard deviation of `sigma`. After the burn-in 
-        period, random numbers are drawn from the Normal 
-        distribution with much lower standard deviation, i.e.
-        N(0, fs*sigma), where `fs` is the factor by which
-        `sigma` is reduced.
+        If scalar value is given, it represents a unique stan-
+        dard deviation for the multivariate distribution. If
+        list is given, it represents different standard devi-
+        ations, one for each of the variables of the energy
+        function (i.e. each variable of the search space). In
+        this case, different steps are taken in different dir-
+        ections of the multi-dimensional search space. For
+        example, if sigma=[1, 2] then the covariance matrix
+        of the associated multivariate distribution is as
+        follows: cov = [[1, 0], [0, 2]]. 
+        Random numbers are initially drawn from the multivariate
+        Student's t-distribution with a low degree of freedom. 
+        After the burn-in period, random numbers are drawn from 
+        the multivariate Normal distribution with much lower 
+        standard deviation, i.e. MVN([0], fs*[cov]), where `fs` 
+        is the factor by which the standard deviations from the
+        covariance matrix are reduced. Multivariate random 
+        samples are not statistically correlated.
     eps: float, default=1e-6
         Temperature value at which the algorithm is stopped.
     burn: int, default=20
         Number of iterations with the original step size of
         the random walk from the Student's t distribution, after
-        which the step size is reduced approximately by a factor
-        of 10 by switching over to the Normal distribution with
-        a lower standard deviation (see parameter `sigma` above).
+        which the step size is reduced by switching over to the 
+        Normal distribution with a lower standard deviation (see 
+        parameter `sigma` above).
     fs: float, default=0.1
         Factor for reducing the standard deviation of a statisti-
-        cal distributin used for the random walk (see parameter
-        `sigma` above).
+        cal distribution used for the random walk (see parameter
+        `sigma` above for more information).
     verbose: bool, default=False
         Indicator for printing (on stdout) internal messages.
 
@@ -104,7 +115,8 @@ def simulated_annealing(f, x0, bounds=None, T0=1., C=10., sigma=1.,
     terion is according to the Boltzman probability and Metropolis
     algorithm. Temperature schedule is exponential cooling.
     """
-    from numpy import exp, pi, array
+    from numpy import exp, pi, sqrt
+    from numpy import array, identity, zeros, repeat
     from scipy import stats
 
     # Checking input parameters for validity.
@@ -117,7 +129,7 @@ def simulated_annealing(f, x0, bounds=None, T0=1., C=10., sigma=1.,
     if type(x0) is list:
         # Turn list into a numpy array.
         x0 = array(x0)
-    
+
     # Dimension of the search space.
     N = x0.size
     # Initial values.
@@ -129,22 +141,42 @@ def simulated_annealing(f, x0, bounds=None, T0=1., C=10., sigma=1.,
     # Initialize best values.
     x_top = x
     E_top = E
-    
+
+    if type(sigma) is list:
+        # Turn list into a numpy array.
+        sigma = array(sigma)
+    else:
+        # Turn scalar into a numpy array.
+        sigma = repeat(sigma, repeats=N)
+
+    # Degrees of freedom for the Chi2 distr.
+    nu = 10
+    # Mean and covariance values matrices for
+    # the Multivariate Normal distribution.
+    mu = zeros(N)
+    eye = identity(N)
+    cov = sigma * eye
+
     k = 0
     while T >= eps:
         # Generate coordinates for the random walk.
-        if k < burn:
-            # Original step size during the burn-in, from
-            # the Student's t distribution with a low degree
-            # of freedom.
-            walk = stats.t(df=10, loc=0, scale=sigma).rvs(N)
+        if k <= burn:
+            # Original step size during the burn-in, from the
+            # multivariate Student's t distribution with low
+            # degrees of freedom.
+            # Chi2 distribution with "nu" degrees of freedom.
+            u = stats.chi2(df=nu).rvs(size=1)
+            # Multivariate Normal distribution.
+            z = stats.multivariate_normal(mean=mu, cov=cov).rvs(size=1)
+            # Multivariate Student's t distribution.
+            walk = sqrt(nu/u) * z
         else:
             # Reduce the step size after temperature cools down
-            # by switching to the Normal distribution with a 
-            # lower standard deviation.
-            walk = stats.norm(loc=0, scale=sigma*fs).rvs(N)
+            # by switching to the multivariate Normal distribution 
+            # with a lower standard deviation.
+            walk = stats.multivariate_normal(mean=mu, cov=fs*cov).rvs(size=1)
 
-        # Random walk.
+        # Random walk in N dimensions.
         x_new = x + walk
 
         # Checking bounds on the function's variables.
@@ -185,13 +217,13 @@ def simulated_annealing(f, x0, bounds=None, T0=1., C=10., sigma=1.,
                 x = x_new
                 E = E_new
 
-        # Temperature schedule (cooling).
-        T = T0*exp(-k/C)
-
         # Save the best solution found thus far.
         if E < E_top:
             x_top = x_new
             E_top = E_new
+
+        # Temperature schedule (cooling).
+        T = T0*exp(-k/C)
 
         k += 1
     
@@ -235,12 +267,12 @@ if __name__ == "__main__":
         return f
     
     # Initial point.
-    x0 = [2., 2.]
+    x0 = [0., 2.]
     # Find minimum of the Rosenbrock's function.
     x, E = simulated_annealing(rosenbrock, x0, 
                                bounds=[(-2,5), (-2,5)],
-                               T0=1000., C=20, eps=1e-20, burn=50,
-                               verbose=True)
+                               T0=1000., C=20, sigma=[0.8, 1.2], 
+                               eps=1e-20, burn=50, verbose=True)
     print('Rosenbrock function [1, 1]:')
     print(f'Coordinates: {x[0]:.4f}, {x[1]:.4f}')
     print(f'Energy func.: {E:.4e}\n')
@@ -248,9 +280,9 @@ if __name__ == "__main__":
     # Initial point.
     x0 = np.array([0., 0.])
     # Find minimum of the Beale's function.
-    x, E = simulated_annealing(beale, x0, 
-                               T0=1000., C=20., eps=1e-24, 
-                               burn=200, sigma=0.6, verbose=True)
+    x, E = simulated_annealing(beale, x0, bounds=[(-3,6), (-3,5)],
+                               T0=1000., C=20., sigma=[1., 0.6], 
+                               eps=1e-24, burn=200, verbose=True)
     print('Beale function [3, 0.5]:')
     print(f'Coordinates: {x[0]:.4f}, {x[1]:.4f}')
     print(f'Energy func.: {E:.4e}\n')
