@@ -1,5 +1,5 @@
-def simulated_annealing(f, x0, T0=1., C=10., sigma=1., eps=1e-8, 
-                        burn=20, fs=0.5, verbose=False):
+def simulated_annealing(f, x0, bounds=None, T0=1., C=10., sigma=1., 
+                        eps=1e-8, burn=20, fs=0.5, verbose=False):
     """
     Simulaled annealing algorithm.
      
@@ -16,8 +16,21 @@ def simulated_annealing(f, x0, T0=1., C=10., sigma=1., eps=1e-8,
         where x is a vector. This can also be a black-box func-
         tion or even a simulation process that takes inputs and 
         returns a state of the system.
-    x0: np.array
-        Initial values for the parameters of the energy function.
+    x0: np.array or list
+        Initial values for the variables of the energy function.
+        For example, if the energy functions is f(x,y), then
+        initial values are given as [x0, y0], where x0 is the 
+        initial value for the variable x and y0 for the variable
+        y. Order of array elements is important!
+    bounds: list of tuples or None, default=None
+        List of two-element tuples which define bounds on energy 
+        function variables. The number and order of list elements
+        is the same as for the array `x0` for the initial values.
+        For example, if the energy function is f(x,y), then 
+        bounds are defined as follows: [(xl,xu), (yl,yu)], where
+        xl, xu are, respectively, lower and upper bounds for the
+        variable x, and yl, yu represnt the same limits for the
+        variable y. Order of tuples in the list is important!
     T0: float, default=1.
         Initial temperature value.
     C: float, default=10.
@@ -59,23 +72,23 @@ def simulated_annealing(f, x0, T0=1., C=10., sigma=1., eps=1e-8,
     
     Raises
     ------
-    StopIteration
-        Exit the main loop after the `max_count` counter is 
-        exceeded. This signals that the algorithm is not
-        converging.
+    ValueError
+        Checking input parameter's value and raising error
+        if it falls outside the valid range.
     
     Important
     ---------
     There is a relationship in the cooling schedule between the
-    initial temperature, decay value and stopping temperature,
-    which is closely coorelated with the burn iterations and
-    maximum counter value. The user should plot the cooling
-    schedule that he/she intends to use and only then decide on
-    the concrete `eps`, `burn` and `sigma` parameter values.
-    Defaults are provided for orientation only, and may not be
-    suited for all applications. As a rule of thumb, the `burn`
-    parameter can be set near the iteration number around which
-    the cooling schedule curve exhibits a knee-point.
+    initial temperature, decay value and stopping temperature. 
+    The user should plot the cooling schedule that he/she intends 
+    to use and only then decide on the concrete `eps`, `burn` and 
+    `sigma` parameter values. Defaults are provided for orientation 
+    only, and may not be suited for all applications. As a rule of 
+    thumb the `burn` parameter can be set near the iteration number 
+    around which the cooling schedule curve exhibits a knee-point.
+    If the bounds are set on the energy function's variables these 
+    should be wide enough to allow the exploration of the search-
+    space by the random walk.
     
     Notes
     -----
@@ -91,15 +104,20 @@ def simulated_annealing(f, x0, T0=1., C=10., sigma=1., eps=1e-8,
     terion is according to the Boltzman probability and Metropolis
     algorithm. Temperature schedule is exponential cooling.
     """
-    from numpy import exp, pi
+    from numpy import exp, pi, array
     from scipy import stats
 
-    # Testing input parameters.
+    # Checking input parameters for validity.
     if T0 <= 0.:
         raise ValueError('Initial temperature must be positive.')
     if fs <= 0. or fs > 1.:
         raise ValueError('Parameter "fs" must be between 0 and 1.')
-
+    if C <= 0.:
+        raise ValueError('Parameter "C" must be positive number.')
+    if type(x0) is list:
+        # Turn list into a numpy array.
+        x0 = array(x0)
+    
     # Dimension of the search space.
     N = x0.size
     # Initial values.
@@ -129,6 +147,26 @@ def simulated_annealing(f, x0, T0=1., C=10., sigma=1., eps=1e-8,
         # Random walk.
         x_new = x + walk
 
+        # Checking bounds on the function's variables.
+        # If the variable is found outside the bounds <l_bound, u_bound> 
+        # it is re-translated in the opposite direction, using the same
+        # step from the current random walk.
+        if bounds is not None:
+            for i, bound in enumerate(bounds):
+                # Check for each variable:
+                if x_new[i] < bound[0]:
+                    # Coord. is below the lower bound.
+                    # Move the new coord. to the right.
+                    x_new[i] = x[i] + abs(walk[i])
+                    if verbose:
+                        print(f'iter. {k}: l_bound')
+                elif x_new[i] > bound[1]:
+                    # Coord. is above the upper bound.
+                    # Move the new coord. to the left.
+                    x_new[i] = x[i] - abs(walk[i])
+                    if verbose:
+                        print(f'iter. {k}: u_bound')
+
         # Compute energy function at new coords.
         E_new = f(*x_new)
         # Energy difference.
@@ -141,7 +179,7 @@ def simulated_annealing(f, x0, T0=1., C=10., sigma=1., eps=1e-8,
         else:
             r = stats.uniform.rvs()
             # Boltzman probability.
-            alpha = (2*pi*T)**(-N/2) * exp(-abs(Delta_E)**2/(2*T))
+            alpha = (2*pi*T)**(-N/2.) * exp(-abs(Delta_E)**2/(2*T))
             # Stochastic acceptance.
             if r < alpha:
                 x = x_new
@@ -197,9 +235,10 @@ if __name__ == "__main__":
         return f
     
     # Initial point.
-    x0 = np.array([2., 2.])
+    x0 = [2., 2.]
     # Find minimum of the Rosenbrock's function.
     x, E = simulated_annealing(rosenbrock, x0, 
+                               bounds=[(-2,5), (-2,5)],
                                T0=1000., C=20, eps=1e-20, burn=50,
                                verbose=True)
     print('Rosenbrock function [1, 1]:')
@@ -230,6 +269,7 @@ if __name__ == "__main__":
     # Find minimum of the Rosenbrock's function,
     # subject to constraint (circle): x**2 + y**2 <= 2.
     x, E = simulated_annealing(rosenbrock_constrained, x0, 
+                               bounds=[(-2,4), (-2,4)],
                                T0=1000., C=20., eps=1e-18, 
                                burn=100, sigma=0.6, verbose=True)
     print('Rosenbrock (constrained) function [1, 1]:')
