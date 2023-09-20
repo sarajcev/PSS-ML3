@@ -149,6 +149,14 @@ def simulated_annealing(f, x0, bounds=None, T0=1., C=10., sigma=1.,
         # Turn scalar into a numpy array.
         sigma = repeat(sigma, repeats=N)
 
+    # Calculate number of steps after the burn-in.
+    j = 0
+    temperature = T0
+    while temperature >= eps:
+        temperature = T0 * exp(-j/C)
+        j += 1
+    n_steps = j - burn
+
     # Degrees of freedom for the Chi2 distr.
     nu = 10
     # Mean and covariance values matrices for
@@ -157,24 +165,32 @@ def simulated_annealing(f, x0, bounds=None, T0=1., C=10., sigma=1.,
     eye = identity(N)
     cov = sigma * eye
 
+    # Random samples are pre-generated outside the main loop for the reasons
+    # of speeding-up the code execution (see the results of code profiling).
+    # Pre-generate random samples from the Multivariate Normal distribution
+    # for drawing from the Multivariate Student's t distribution during the
+    # burn-in period.
+    z = stats.multivariate_normal(mean=mu, cov=cov).rvs(size=burn)
+    # Pre-generate random samples from the Multivariate Normal distribution
+    # for the rest of the optimization process.
+    w = stats.multivariate_normal(mean=mu, cov=fs*cov).rvs(size=n_steps)
+
     k = 0
     while T >= eps:
         # Generate coordinates for the random walk.
-        if k <= burn:
-            # Original step size during the burn-in, from the
-            # multivariate Student's t distribution with low
-            # degrees of freedom.
+        if k < burn:
+            # Original step size during the burn-in, from the multivariate 
+            # Student's t distribution with low degrees of freedom.
             # Chi2 distribution with "nu" degrees of freedom.
             u = stats.chi2(df=nu).rvs(size=1)
-            # Multivariate Normal distribution.
-            z = stats.multivariate_normal(mean=mu, cov=cov).rvs(size=1)
             # Multivariate Student's t distribution.
-            walk = sqrt(nu/u) * z
+            walk = sqrt(nu/u) * z[k]  # step size
         else:
-            # Reduce the step size after temperature cools down
-            # by switching to the multivariate Normal distribution 
-            # with a lower standard deviation.
-            walk = stats.multivariate_normal(mean=mu, cov=fs*cov).rvs(size=1)
+            # Reduce the step size after the temperature cools down by
+            # switching to the multivariate Normal distribution with a
+            # lower standard deviation.
+            j = k - burn
+            walk = w[j]  # step size
 
         # Random walk in N dimensions.
         x_new = x + walk
@@ -223,7 +239,7 @@ def simulated_annealing(f, x0, bounds=None, T0=1., C=10., sigma=1.,
             E_top = E_new
 
         # Temperature schedule (cooling).
-        T = T0*exp(-k/C)
+        T = T0 * exp(-k/C)
 
         k += 1
     
