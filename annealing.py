@@ -1,28 +1,30 @@
 def simulated_annealing(f, x0, bounds=None, T0=1., C=10., sigma=1., 
-                        eps=1e-8, burn=20, fs=0.5, verbose=False):
+                        fs=0.5, burn=20, eps=1e-8, verbose=False):
     """
     Simulaled annealing algorithm.
      
     Simulaled annealing with exponential temperature decay. 
     A metaheuristic algorithm commonly used for optimization 
-    problems of black-box functions (or systems) with large 
-    search spaces.
+    problems of black-box functions (and systems) with large 
+    search spaces. This algorithm works in the domain of real 
+    valued arguments, and uses certain enhancements on top of 
+    the classical approach.
 
     Parameters
     ----------
-    f: function
+    f : function
         User-supplied external function f(x) which describes the 
         so-called energy function of the system being optimized,
         where x is a vector. This can also be a black-box func-
         tion or even a simulation process that takes inputs and 
         returns a state of the system.
-    x0: np.array or list
+    x0 : np.array or list
         Initial values for the variables of the energy function.
         For example, if the energy functions is f(x,y), then
         initial values are given as [x0, y0], where x0 is the 
         initial value for the variable x and y0 for the variable
         y. Order of array elements is important!
-    bounds: list of tuples or None, default=None
+    bounds : list of tuples or None, default=None
         List of two-element tuples which define bounds on energy 
         function variables. The number and order of list elements
         is the same as for the array `x0` for the initial values.
@@ -31,13 +33,13 @@ def simulated_annealing(f, x0, bounds=None, T0=1., C=10., sigma=1.,
         xl, xu are, respectively, lower and upper bounds for the
         variable x, and yl, yu represnt the same limits for the
         variable y. Order of tuples in the list is important!
-    T0: float, default=1.
+    T0 : float, default=1.
         Initial temperature value.
-    C: float, default=10.
+    C : float, default=10.
         Constant decay value of the temperature scheduling.
         Temperature after k-th iteration is determined from 
         the following relation: Tk = T0*exp(-k/C).
-    sigma: float or list, default=1.
+    sigma : float or list, default=1.
         Standard deviation of a statistical distribution for
         the random walk by which new candidates are generated. 
         If scalar value is given, it represents a unique stan-
@@ -58,27 +60,28 @@ def simulated_annealing(f, x0, bounds=None, T0=1., C=10., sigma=1.,
         is the factor by which the standard deviations from the
         covariance matrix are reduced. Multivariate random 
         samples are not statistically correlated.
-    eps: float, default=1e-6
-        Temperature value at which the algorithm is stopped.
-    burn: int, default=20
+    fs : float, default=0.5
+        Factor for reducing the standard deviation of a statisti-
+        cal distribution used for the random walk (see parameter
+        `sigma` above for more information). Default value halves
+        the `sigma` after the burn-in.
+    burn : int, default=20
         Number of iterations with the original step size of
         the random walk from the Student's t distribution, after
         which the step size is reduced by switching over to the 
         Normal distribution with a lower standard deviation (see 
         parameter `sigma` above).
-    fs: float, default=0.1
-        Factor for reducing the standard deviation of a statisti-
-        cal distribution used for the random walk (see parameter
-        `sigma` above for more information).
-    verbose: bool, default=False
+    eps : float, default=1e-6
+        Temperature value at which the algorithm is stopped.
+    verbose : bool, default=False
         Indicator for printing (on stdout) internal messages.
 
     Returns
     -------
-    x: np.array
+    x : np.array
         Coordinate values (i.e. parameters) of the energy 
         function's optimum point.
-    E: float
+    E : float
         Energy function's optimal value.
     
     Raises
@@ -95,7 +98,7 @@ def simulated_annealing(f, x0, bounds=None, T0=1., C=10., sigma=1.,
     to use and only then decide on the concrete `eps`, `burn` and 
     `sigma` parameter values. Defaults are provided for orientation 
     only, and may not be suited for all applications. As a rule of 
-    thumb the `burn` parameter can be set near the iteration number 
+    thumb the `burn` parameter may be set near the iteration number 
     around which the cooling schedule curve exhibits a knee-point.
     If the bounds are set on the energy function's variables these 
     should be wide enough to allow the exploration of the search-
@@ -116,7 +119,7 @@ def simulated_annealing(f, x0, bounds=None, T0=1., C=10., sigma=1.,
     algorithm. Temperature schedule is exponential cooling.
     """
     from numpy import exp, pi, sqrt
-    from numpy import array, identity, zeros, repeat
+    from numpy import array, identity, zeros, repeat, atleast_1d
     from scipy import stats
 
     # Checking input parameters for validity.
@@ -152,7 +155,7 @@ def simulated_annealing(f, x0, bounds=None, T0=1., C=10., sigma=1.,
     # Calculate number of steps after the burn-in.
     j = 0
     temperature = T0
-    while temperature >= eps:
+    while temperature > eps:
         temperature = T0 * exp(-j/C)
         j += 1
     n_steps = j - burn
@@ -167,6 +170,9 @@ def simulated_annealing(f, x0, bounds=None, T0=1., C=10., sigma=1.,
 
     # Random samples are pre-generated outside the main loop for the reasons
     # of speeding-up the code execution (see the results of code profiling).
+    # Pre-generated random samples from the Chi2 distribution with "nu" 
+    # degrees of freedom.
+    u = stats.chi2(df=nu).rvs(size=burn)
     # Pre-generate random samples from the Multivariate Normal distribution
     # for drawing from the Multivariate Student's t distribution during the
     # burn-in period.
@@ -176,15 +182,12 @@ def simulated_annealing(f, x0, bounds=None, T0=1., C=10., sigma=1.,
     w = stats.multivariate_normal(mean=mu, cov=fs*cov).rvs(size=n_steps)
 
     k = 0
-    while T >= eps:
+    while T > eps:
         # Generate coordinates for the random walk.
         if k < burn:
             # Original step size during the burn-in, from the multivariate 
             # Student's t distribution with low degrees of freedom.
-            # Chi2 distribution with "nu" degrees of freedom.
-            u = stats.chi2(df=nu).rvs(size=1)
-            # Multivariate Student's t distribution.
-            walk = sqrt(nu/u) * z[k]  # step size
+            walk = sqrt(nu/u[k]) * z[k]  # step size
         else:
             # Reduce the step size after the temperature cools down by
             # switching to the multivariate Normal distribution with a
@@ -192,12 +195,15 @@ def simulated_annealing(f, x0, bounds=None, T0=1., C=10., sigma=1.,
             j = k - burn
             walk = w[j]  # step size
 
+        # Variable "walk" must be 1d-vector and not a scalar.
+        walk = atleast_1d(walk)
+
         # Random walk in N dimensions.
         x_new = x + walk
 
         # Checking bounds on the function's variables.
         # If the variable is found outside the bounds <l_bound, u_bound> 
-        # it is re-translated in the opposite direction, using the same
+        # it is re-translated in the opposite direction, using half the
         # step from the current random walk.
         if bounds is not None:
             for i, bound in enumerate(bounds):
@@ -205,13 +211,13 @@ def simulated_annealing(f, x0, bounds=None, T0=1., C=10., sigma=1.,
                 if x_new[i] < bound[0]:
                     # Coord. is below the lower bound.
                     # Move the new coord. to the right.
-                    x_new[i] = x[i] + abs(walk[i])
+                    x_new[i] = x[i] + abs(walk[i]/2)
                     if verbose:
                         print(f'iter. {k}: l_bound')
                 elif x_new[i] > bound[1]:
                     # Coord. is above the upper bound.
                     # Move the new coord. to the left.
-                    x_new[i] = x[i] - abs(walk[i])
+                    x_new[i] = x[i] - abs(walk[i]/2)
                     if verbose:
                         print(f'iter. {k}: u_bound')
 
@@ -282,12 +288,13 @@ if __name__ == "__main__":
             f = 1000.
         return f
     
+
     # Initial point.
     x0 = [0., 2.]
     # Find minimum of the Rosenbrock's function.
     x, E = simulated_annealing(rosenbrock, x0, 
-                               bounds=[(-2,5), (-2,5)],
-                               T0=1000., C=20, sigma=[0.8, 1.2], 
+                               bounds=[(-2,5), (-2,5)], fs=0.1,
+                               T0=1000., C=20, sigma=[0.4, 0.8], 
                                eps=1e-20, burn=50, verbose=True)
     print('Rosenbrock function [1, 1]:')
     print(f'Coordinates: {x[0]:.4f}, {x[1]:.4f}')
@@ -297,8 +304,8 @@ if __name__ == "__main__":
     x0 = np.array([0., 0.])
     # Find minimum of the Beale's function.
     x, E = simulated_annealing(beale, x0, bounds=[(-3,6), (-3,5)],
-                               T0=1000., C=20., sigma=[1., 0.6], 
-                               eps=1e-24, burn=200, verbose=True)
+                               T0=1000., C=20., sigma=[0.8, 0.6], 
+                               eps=1e-24, fs=0.1, burn=200, verbose=True)
     print('Beale function [3, 0.5]:')
     print(f'Coordinates: {x[0]:.4f}, {x[1]:.4f}')
     print(f'Energy func.: {E:.4e}\n')
