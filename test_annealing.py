@@ -6,8 +6,8 @@ def test_annealing():
         y = (x-1)**2 + (y+1)**2
         return y
     
-    x, e = simulated_annealing(f, [4, 4])
+    res = simulated_annealing(f, [4, 4])
 
     s = array([1, -1])
     
-    testing.assert_array_almost_equal(x, s, decimal=1)
+    testing.assert_array_almost_equal(res['x'], s, decimal=1)
