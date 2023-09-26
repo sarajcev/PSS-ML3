@@ -1,5 +1,6 @@
 def simulated_annealing(f, x0, bounds=None, T0=1., C=10., sigma=1., 
-                        fs=0.5, burn=20, eps=1e-8, verbose=False):
+                        fs=0.5, burn=20, eps=1e-8, tol=1e-3, wait=50, 
+                        verbose=False):
     """
     Simulaled annealing algorithm.
      
@@ -73,16 +74,32 @@ def simulated_annealing(f, x0, bounds=None, T0=1., C=10., sigma=1.,
         parameter `sigma` above).
     eps : float, default=1e-6
         Temperature value at which the algorithm is stopped.
+    tol : float, default=1e-3
+        Tolerance for considering that absolute difference between 
+        two successive energy function evaluations is small enough
+        that it has not improved further.
+    wait : int, default=50
+        Wait period (iterations) before early stopping due to the 
+        lack of improvement. Counter is incremented each time the
+        absolute difference between two successive energy function 
+        evaluations is below the `tol` level. If this counter ever
+        exceeds the `wait` value, the optimization is terminated.
     verbose : bool, default=False
         Indicator for printing (on stdout) internal messages.
 
     Returns
     -------
-    x : np.array
-        Coordinate values (i.e. parameters) of the energy 
-        function's optimum point.
-    E : float
-        Energy function's optimal value.
+    results : dictionary
+        Result is a dictionary holding the following keys:
+        'x' : np.array
+            Coordinate values (i.e. parameters) of the energy 
+            function's optimum point.
+        'E' : float
+            Energy function's optimal value.
+        'x_all' : np.array
+            Return the list of all x-values.
+        'E_all' : np.array
+            Return the list of all E-values.
     
     Raises
     ------
@@ -117,6 +134,9 @@ def simulated_annealing(f, x0, bounds=None, T0=1., C=10., sigma=1.,
     distribution with a lower standard deviation. Acceptance cri-
     terion is according to the Boltzman probability and Metropolis
     algorithm. Temperature schedule is exponential cooling.
+    Early stopping is implemented by monitoring absolute value of
+    the energy difference between any two succesive iterations and
+    a waiting period.
     """
     from numpy import exp, pi, sqrt
     from numpy import array, identity, zeros, repeat, atleast_1d
@@ -182,6 +202,8 @@ def simulated_annealing(f, x0, bounds=None, T0=1., C=10., sigma=1.,
     w = stats.multivariate_normal(mean=mu, cov=fs*cov).rvs(size=n_steps)
 
     k = 0
+    early_stop = 0
+    x_all = []; E_all = []
     while T > eps:
         # Generate coordinates for the random walk.
         if k < burn:
@@ -197,7 +219,10 @@ def simulated_annealing(f, x0, bounds=None, T0=1., C=10., sigma=1.,
 
         # Variable "walk" must be 1d-vector and not a scalar.
         walk = atleast_1d(walk)
-
+        # Start from the best known position after the burn-in.
+        if k == burn:
+            x = x_top      
+        
         # Random walk in N dimensions.
         x_new = x + walk
 
@@ -244,8 +269,18 @@ def simulated_annealing(f, x0, bounds=None, T0=1., C=10., sigma=1.,
             x_top = x_new
             E_top = E_new
 
+        x_all.append(x)
+        E_all.append(E)
+
         # Temperature schedule (cooling).
         T = T0 * exp(-k/C)
+
+        # Early stopping.
+        if abs(Delta_E) <= tol: 
+            early_stop += 1
+        if early_stop >= wait:
+            print(f'Early stopping after {k} iterations.')
+            break
 
         k += 1
     
@@ -253,14 +288,21 @@ def simulated_annealing(f, x0, bounds=None, T0=1., C=10., sigma=1.,
         print('Final temperature: {:.3e} after {:d} iterations.'
               .format(T, k))
     
-    print('Optimization successful.')
-
-    return x_top, E_top
+    # Format results as a dictionary.
+    results = {
+        'x': x_top,      # Best x-values array.
+        'E': E_top,      # Best energy func. value.
+        'x_all': x_all,  # x-values arrays for all iterations.
+        'E_all': E_all   # Energy func. values for all iterations
+    }
+    
+    return results
 
 
 if __name__ == "__main__":
     """ Test with simple benchmark functions. """
     import numpy as np
+    import matplotlib.pyplot as plt
 
     def rosenbrock(x, y):
         # Rosenbrock's function.
@@ -292,41 +334,50 @@ if __name__ == "__main__":
     # Initial point.
     x0 = [0., 2.]
     # Find minimum of the Rosenbrock's function.
-    x, E = simulated_annealing(rosenbrock, x0, 
-                               bounds=[(-2,5), (-2,5)], fs=0.1,
-                               T0=1000., C=20, sigma=[0.4, 0.8], 
-                               eps=1e-20, burn=50, verbose=True)
+    res = simulated_annealing(
+        rosenbrock, x0, 
+        bounds=[(-2,5), (-2,5)], fs=0.1,
+        T0=1000., C=20, sigma=[0.4, 0.8], 
+        eps=1e-20, burn=50, verbose=True)
     print('Rosenbrock function [1, 1]:')
-    print(f'Coordinates: {x[0]:.4f}, {x[1]:.4f}')
-    print(f'Energy func.: {E:.4e}\n')
+    print(f"Coordinates: {res['x'][0]:.4f}, {res['x'][1]:.4f}")
+    print(f"Energy func.: {res['E']:.4e}\n")
+    plt.plot(res['x_all'])
+    plt.xlabel('Iterations')
+    plt.ylabel('x-values')
+    plt.show()
+    plt.semilogy(res['E_all'])
+    plt.xlabel('Iterations')
+    plt.ylabel('Energy func. value')
+    plt.show()
 
     # Initial point.
     x0 = np.array([0., 0.])
     # Find minimum of the Beale's function.
-    x, E = simulated_annealing(beale, x0, bounds=[(-3,6), (-3,5)],
-                               T0=1000., C=20., sigma=[0.8, 0.6], 
-                               eps=1e-24, fs=0.1, burn=200, verbose=True)
+    res = simulated_annealing(beale, x0, bounds=[(-3,6), (-3,5)],
+                              T0=1000., C=20., sigma=[0.8, 0.6], 
+                              eps=1e-24, fs=0.1, burn=200)
     print('Beale function [3, 0.5]:')
-    print(f'Coordinates: {x[0]:.4f}, {x[1]:.4f}')
-    print(f'Energy func.: {E:.4e}\n')
+    print(f"Coordinates: {res['x'][0]:.4f}, {res['x'][1]:.4f}")
+    print(f"Energy func.: {res['E']:.4e}\n")
 
     # Initial point.
     x0 = np.array([0., 0.])
     # Find minimum of the Booth's function.
-    x, E = simulated_annealing(booth, x0, 
-                               T0=1000., C=20., eps=1e-18, burn=50)
+    res = simulated_annealing(booth, x0, 
+                              T0=1000., C=20., eps=1e-18, burn=50)
     print('Booth function [1, 3]:')
-    print(f'Coordinates: {x[0]:.4f}, {x[1]:.4f}')
-    print(f'Energy func.: {E:.4e}\n')
+    print(f"Coordinates: {res['x'][0]:.4f}, {res['x'][1]:.4f}")
+    print(f"Energy func.: {res['E']:.4e}\n")
 
     # Initial point.
     x0 = np.array([0., 1.])
     # Find minimum of the Rosenbrock's function,
     # subject to constraint (circle): x**2 + y**2 <= 2.
-    x, E = simulated_annealing(rosenbrock_constrained, x0, 
-                               bounds=[(-2,4), (-2,4)],
-                               T0=1000., C=20., eps=1e-18, 
-                               burn=100, sigma=0.6, verbose=True)
+    res = simulated_annealing(rosenbrock_constrained, x0, 
+                              bounds=[(-2,4), (-2,4)],
+                              T0=1000., C=20., eps=1e-18, 
+                              burn=100, sigma=0.6)
     print('Rosenbrock (constrained) function [1, 1]:')
-    print(f'Coordinates: {x[0]:.4f}, {x[1]:.4f}')
-    print(f'Energy func.: {E:.4e}')
+    print(f"Coordinates: {res['x'][0]:.4f}, {res['x'][1]:.4f}")
+    print(f"Energy func.: {res['E']:.4e}")
