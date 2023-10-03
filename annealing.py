@@ -50,9 +50,9 @@ def simulated_annealing(f, x0, bounds=None, T0=1., C=10., sigma=1.,
         function (i.e. each variable of the search space). In
         this case, different steps are taken in different dir-
         ections of the multi-dimensional search space. For
-        example, if sigma=[1, 2] then the covariance matrix
+        example, if sigma=[s1, s2] then the covariance matrix
         of the associated multivariate distribution is as
-        follows: cov = [[1, 0], [0, 2]]. 
+        follows: cov = [[s1^2, 0], [0, s2^2]]. 
         Random numbers are initially drawn from the multivariate
         Student's t-distribution with a low degree of freedom. 
         After the burn-in period, random numbers are drawn from 
@@ -167,10 +167,10 @@ def simulated_annealing(f, x0, bounds=None, T0=1., C=10., sigma=1.,
 
     if type(sigma) is list:
         # Turn list into a numpy array.
-        sigma = array(sigma)
+        sigma = array(sigma)**2
     else:
         # Turn scalar into a numpy array.
-        sigma = repeat(sigma, repeats=N)
+        sigma = repeat(sigma**2, repeats=N)
 
     # Calculate number of steps after the burn-in.
     j = 0
@@ -252,7 +252,7 @@ def simulated_annealing(f, x0, bounds=None, T0=1., C=10., sigma=1.,
         Delta_E = E_new - E
 
         # Metropolis acceptance criterion.
-        if Delta_E < 0.:
+        if Delta_E <= 0.:
             x = x_new
             E = E_new
         else:
@@ -327,7 +327,7 @@ if __name__ == "__main__":
         if x**2 + y**2 <= 2.:
             f = rosenbrock(x, y)
         else:
-            f = 1000.
+            f = 10 * (x**2 + y**2) * rosenbrock(x, y)
         return f
     
 
@@ -371,13 +371,13 @@ if __name__ == "__main__":
     print(f"Energy func.: {res['E']:.4e}\n")
 
     # Initial point.
-    x0 = np.array([0., 1.])
+    x0 = np.array([0., 0.])
     # Find minimum of the Rosenbrock's function,
     # subject to constraint (circle): x**2 + y**2 <= 2.
     res = simulated_annealing(rosenbrock_constrained, x0, 
                               bounds=[(-2,4), (-2,4)],
                               T0=1000., C=20., eps=1e-18, 
-                              burn=100, sigma=0.6)
+                              burn=100, sigma=0.5)
     print('Rosenbrock (constrained) function [1, 1]:')
     print(f"Coordinates: {res['x'][0]:.4f}, {res['x'][1]:.4f}")
     print(f"Energy func.: {res['E']:.4e}")
