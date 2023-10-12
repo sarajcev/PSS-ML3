@@ -173,3 +173,8 @@ cython_debug/
 .idea/vcs.xml
 .gitignore
 .idea/modules.xml
+
+# Figure files
+*.png
+*.eps
+*.pdf
