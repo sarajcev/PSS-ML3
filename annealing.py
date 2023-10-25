@@ -182,8 +182,8 @@ def simulated_annealing(f, x0, bounds=None, T0=1., C=10., sigma=1.,
 
     # Degrees of freedom for the Chi2 distr.
     nu = 10
-    # Mean and covariance values matrices for
-    # the Multivariate Normal distribution.
+    # Mean values vector and covariance matrix
+    # for the Multivariate Normal distribution.
     mu = zeros(N)
     eye = identity(N)
     cov = sigma * eye
@@ -238,13 +238,13 @@ def simulated_annealing(f, x0, bounds=None, T0=1., C=10., sigma=1.,
                     # Move the new coord. to the right.
                     x_new[i] = x[i] + abs(walk[i]/2)
                     if verbose:
-                        print(f'iter. {k}: l_bound')
+                        print(f'iter. {k} (x:{i}): l_bound')
                 elif x_new[i] > bound[1]:
                     # Coord. is above the upper bound.
                     # Move the new coord. to the left.
                     x_new[i] = x[i] - abs(walk[i]/2)
                     if verbose:
-                        print(f'iter. {k}: u_bound')
+                        print(f'iter. {k} (x:{i}): u_bound')
 
         # Compute energy function at new coords.
         E_new = f(*x_new)
