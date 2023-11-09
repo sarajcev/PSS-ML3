@@ -56,10 +56,10 @@ def simulated_annealing(f, x0, bounds=None, T0=1., C=10., sigma=1.,
         Random numbers are initially drawn from the multivariate
         Student's t-distribution with a low degree of freedom. 
         After the burn-in period, random numbers are drawn from 
-        the multivariate Normal distribution with much lower 
-        standard deviation, i.e. MVN([0], fs*[cov]), where `fs` 
-        is the factor by which the standard deviations from the
-        covariance matrix are reduced. Multivariate random 
+        the multivariate Normal distribution with a (possibly) 
+        lower standard deviation, i.e. MVN([0], fs*[cov]), where 
+        `fs` is the factor by which the standard deviations from 
+        the covariance matrix are reduced. Multivariate random 
         samples are not statistically correlated.
     fs : float, default=0.5
         Factor for reducing the standard deviation of a statisti-
@@ -67,8 +67,8 @@ def simulated_annealing(f, x0, bounds=None, T0=1., C=10., sigma=1.,
         `sigma` above for more information). Default value halves
         the `sigma` after the burn-in.
     burn : int, default=20
-        Number of iterations with the original step size of
-        the random walk from the Student's t distribution, after
+        Number of iterations with the original step size of the
+        random walk from the Student's t distribution, after
         which the step size is reduced by switching over to the 
         Normal distribution with a lower standard deviation (see 
         parameter `sigma` above).
@@ -85,7 +85,7 @@ def simulated_annealing(f, x0, bounds=None, T0=1., C=10., sigma=1.,
         evaluations is below the `tol` level. If this counter ever
         exceeds the `wait` value, the optimization is terminated.
     verbose : bool, default=False
-        Indicator for printing (on stdout) internal messages.
+        Indicator for printing (on `stdout`) internal messages.
 
     Returns
     -------
@@ -117,7 +117,7 @@ def simulated_annealing(f, x0, bounds=None, T0=1., C=10., sigma=1.,
     only, and may not be suited for all applications. As a rule of 
     thumb the `burn` parameter may be set near the iteration number 
     around which the cooling schedule curve exhibits a knee-point.
-    If the bounds are set on the energy function's variables these 
+    If the bounds are set on the energy function's variables, these 
     should be wide enough to allow the exploration of the search-
     space by the random walk.
     
@@ -127,13 +127,17 @@ def simulated_annealing(f, x0, bounds=None, T0=1., C=10., sigma=1.,
     being optimized, (2) perturbation function that is used for
     generating candidate solutions, (3) acceptance criterion, and 
     (4) temperature schedule (i.e. cooling).
+    Energy function is the user-supplied external function with 
+    arbitrary number of real variables. It can depict an external
+    process, black-box model, or even a neural network.
     Perturbation function is a random walk in multi-dimensional
     space, with random samples drawn from the Student's t distri-
     bution with low degrees of freedom. Step size of the walk is
     reduced after the burn-in period by switching to the Normal
-    distribution with a lower standard deviation. Acceptance cri-
-    terion is according to the Boltzman probability and Metropolis
-    algorithm. Temperature schedule is exponential cooling.
+    distribution with a lower standard deviation. 
+    Acceptance criterion is according to the Boltzman probability 
+    and Metropolis algorithm. 
+    Temperature schedule is exponential cooling.
     Early stopping is implemented by monitoring absolute value of
     the energy difference between any two succesive iterations and
     a waiting period.
@@ -174,9 +178,9 @@ def simulated_annealing(f, x0, bounds=None, T0=1., C=10., sigma=1.,
 
     # Calculate number of steps after the burn-in.
     j = 0
-    temperature = T0
-    while temperature > eps:
-        temperature = T0 * exp(-j/C)
+    t = T0
+    while t > eps:
+        t = T0 * exp(-j/C)
         j += 1
     n_steps = j - burn
 
@@ -189,7 +193,7 @@ def simulated_annealing(f, x0, bounds=None, T0=1., C=10., sigma=1.,
     cov = sigma * eye
 
     # Random samples are pre-generated outside the main loop for the reasons
-    # of speeding-up the code execution (see the results of code profiling).
+    # of speeding-up the code execution.
     # Pre-generated random samples from the Chi2 distribution with "nu" 
     # degrees of freedom.
     u = stats.chi2(df=nu).rvs(size=burn)
@@ -213,7 +217,7 @@ def simulated_annealing(f, x0, bounds=None, T0=1., C=10., sigma=1.,
         else:
             # Reduce the step size after the temperature cools down by
             # switching to the multivariate Normal distribution with a
-            # lower standard deviation.
+            # possibly different (lower) standard deviation.
             j = k - burn
             walk = w[j]  # step size
 
@@ -226,10 +230,9 @@ def simulated_annealing(f, x0, bounds=None, T0=1., C=10., sigma=1.,
         # Random walk in N dimensions.
         x_new = x + walk
 
-        # Checking bounds on the function's variables.
+        # Checking bounds on the energy function's variables.
         # If the variable is found outside the bounds <l_bound, u_bound> 
-        # it is re-translated in the opposite direction, using half the
-        # step from the current random walk.
+        # it is re-translated back into the interval.
         if bounds is not None:
             for i, bound in enumerate(bounds):
                 # Check for each variable:
@@ -253,6 +256,7 @@ def simulated_annealing(f, x0, bounds=None, T0=1., C=10., sigma=1.,
 
         # Metropolis acceptance criterion.
         if Delta_E <= 0.:
+            # Deterministic acceptance.
             x = x_new
             E = E_new
         else:
@@ -269,6 +273,7 @@ def simulated_annealing(f, x0, bounds=None, T0=1., C=10., sigma=1.,
             x_top = x_new
             E_top = E_new
 
+        # Collect results into arrays.
         x_all.append(x)
         E_all.append(E)
 
@@ -279,6 +284,7 @@ def simulated_annealing(f, x0, bounds=None, T0=1., C=10., sigma=1.,
         if abs(Delta_E) <= tol: 
             early_stop += 1
         if early_stop >= wait:
+            # Waiting period is over.
             print(f'Early stopping after {k} iterations.')
             break
 
@@ -293,7 +299,7 @@ def simulated_annealing(f, x0, bounds=None, T0=1., C=10., sigma=1.,
         'x': x_top,      # Best x-values array.
         'E': E_top,      # Best energy func. value.
         'x_all': x_all,  # x-values arrays for all iterations.
-        'E_all': E_all   # Energy func. values for all iterations
+        'E_all': E_all   # Energy func. values for all iterations.
     }
     
     return results
