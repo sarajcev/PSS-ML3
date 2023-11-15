@@ -1,7 +1,7 @@
-# PSS-ML3
-Manifold Learning in Power System Transient Stability Assessment
+# Manifold learning in TSA
+Manifold Learning in Power System Transient Stability Assessment (TSA)
 
-Following embedding (or dimmensionality reduction) methods are examined:
+Following **embedding** or dimmensionality reduction methods are examined:
 
 * Principal components analysis
 * Kernelized principal components analysis
@@ -15,4 +15,6 @@ Following embedding (or dimmensionality reduction) methods are examined:
 * Spectral embedding
 * Multi-dimensional scaling
 
-Supervised and unsupervised training (cross-validation with stratified shuffle split), with hyperparameters optimization tackled by means of the **simulating annealing** algorithm.
+**Supervised** and **unsupervised** training, using cross-validation with stratified shuffle split, with hyperparameters optimization tackled by means of the **simulating annealing** algorithm.
+
+**Dataset** is derived from the extensive set of numerical electro-mechanical simulations of the IEEE New England 39-bus benchmark electric power system.
