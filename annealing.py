@@ -56,16 +56,15 @@ def simulated_annealing(f, x0, bounds=None, T0=1., C=10., sigma=1.,
         Random numbers are initially drawn from the multivariate
         Student's t-distribution with a low degree of freedom. 
         After the burn-in period, random numbers are drawn from 
-        the multivariate Normal distribution with a (possibly) 
+        the multivariate Normal distribution with (usually) a
         lower standard deviation, i.e. MVN([0], fs*[cov]), where 
         `fs` is the factor by which the standard deviations from 
         the covariance matrix are reduced. Multivariate random 
         samples are not statistically correlated.
     fs : float, default=0.5
-        Factor for reducing the standard deviation of a statisti-
-        cal distribution used for the random walk (see parameter
-        `sigma` above for more information). Default value halves
-        the `sigma` after the burn-in.
+        Factor (0 < fs <= 1) for reducing the standard deviation
+        of the statistical distribution used for the random walk
+        (see parameter `sigma` above for more information). 
     burn : int, default=20
         Number of iterations with the original step size of the
         random walk from the Student's t distribution, after
@@ -97,9 +96,9 @@ def simulated_annealing(f, x0, bounds=None, T0=1., C=10., sigma=1.,
         'E' : float
             Energy function's optimal value.
         'x_all' : np.array
-            Return the list of all x-values.
+            List of all x-values for all iterations.
         'E_all' : np.array
-            Return the list of all E-values.
+            List of all E-values for all iterations.
     
     Raises
     ------
@@ -116,7 +115,7 @@ def simulated_annealing(f, x0, bounds=None, T0=1., C=10., sigma=1.,
     `sigma` parameter values. Defaults are provided for orientation 
     only, and may not be suited for all applications. As a rule of 
     thumb the `burn` parameter may be set near the iteration number 
-    around which the cooling schedule curve exhibits a knee-point.
+    before the cooling schedule curve exhibits a knee-point.
     If the bounds are set on the energy function's variables, these 
     should be wide enough to allow the exploration of the search-
     space by the random walk.
@@ -137,7 +136,7 @@ def simulated_annealing(f, x0, bounds=None, T0=1., C=10., sigma=1.,
     distribution with a lower standard deviation. 
     Acceptance criterion is according to the Boltzman probability 
     and Metropolis algorithm. 
-    Temperature schedule is exponential cooling.
+    Temperature schedule is the exponential cooling.
     Early stopping is implemented by monitoring absolute value of
     the energy difference between any two succesive iterations and
     a waiting period.
@@ -211,13 +210,13 @@ def simulated_annealing(f, x0, bounds=None, T0=1., C=10., sigma=1.,
     while T > eps:
         # Generate coordinates for the random walk.
         if k < burn:
-            # Original step size during the burn-in, from the multivariate 
-            # Student's t distribution with low degrees of freedom.
+            # Step size during the burn-in, from the multivariate 
+            # Student's t distribution with `nu` degrees of freedom.
             walk = sqrt(nu/u[k]) * z[k]  # step size
         else:
             # Reduce the step size after the temperature cools down by
             # switching to the multivariate Normal distribution with a
-            # possibly different (lower) standard deviation.
+            # possibly different (and lower) standard deviation.
             j = k - burn
             walk = w[j]  # step size
 
@@ -232,7 +231,7 @@ def simulated_annealing(f, x0, bounds=None, T0=1., C=10., sigma=1.,
 
         # Checking bounds on the energy function's variables.
         # If the variable is found outside the bounds <l_bound, u_bound> 
-        # it is re-translated back into the interval.
+        # it is re-translated back into the defined interval.
         if bounds is not None:
             for i, bound in enumerate(bounds):
                 # Check for each variable:
