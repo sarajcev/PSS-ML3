@@ -188,8 +188,7 @@ def simulated_annealing(f, x0, bounds=None, T0=1., C=10., sigma=1.,
     # Mean values vector and covariance matrix
     # for the Multivariate Normal distribution.
     mu = zeros(N)
-    eye = identity(N)
-    cov = sigma * eye
+    cov = stats.Covariance.from_diagonal(sigma)
 
     # Random samples are pre-generated outside the main loop for the reasons
     # of speeding-up the code execution.
@@ -202,7 +201,8 @@ def simulated_annealing(f, x0, bounds=None, T0=1., C=10., sigma=1.,
     z = stats.multivariate_normal(mean=mu, cov=cov).rvs(size=burn)
     # Pre-generate random samples from the Multivariate Normal distribution
     # for the rest of the optimization process.
-    w = stats.multivariate_normal(mean=mu, cov=fs*cov).rvs(size=n_steps)
+    cov_fs = stats.Covariance.from_diagonal(fs*sigma)
+    w = stats.multivariate_normal(mean=mu, cov=cov_fs).rvs(size=n_steps)
 
     k = 0
     early_stop = 0
@@ -357,11 +357,11 @@ if __name__ == "__main__":
     plt.show()
 
     # Initial point.
-    x0 = np.array([0., 0.])
+    x0 = np.array([2.5, 0.])
     # Find minimum of the Beale's function.
-    res = simulated_annealing(beale, x0, bounds=[(-3,6), (-3,5)],
-                              T0=1000., C=20., sigma=[0.8, 0.6], 
-                              eps=1e-24, fs=0.1, burn=200)
+    res = simulated_annealing(beale, x0, bounds=[(0,6), (-3,3)],
+                              T0=1000., C=30., sigma=[0.8, 0.6], 
+                              eps=1e-24, fs=0.1, burn=200, verbose=True)
     print('Beale function [3, 0.5]:')
     print(f"Coordinates: {res['x'][0]:.4f}, {res['x'][1]:.4f}")
     print(f"Energy func.: {res['E']:.4e}\n")
