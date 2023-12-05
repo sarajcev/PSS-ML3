@@ -151,7 +151,7 @@ def simulated_annealing(f, x0, bounds=None, T0=1., C=10., sigma=1.,
     if fs <= 0. or fs > 1.:
         raise ValueError('Parameter "fs" must be between 0 and 1.')
     if C <= 0.:
-        raise ValueError('Parameter "C" must be positive number.')
+        raise ValueError('Parameter "C" must be positive number.') 
     if type(x0) is list:
         # Turn list into a numpy array.
         x0 = array(x0)
@@ -159,11 +159,9 @@ def simulated_annealing(f, x0, bounds=None, T0=1., C=10., sigma=1.,
     # Dimension of the search space.
     N = x0.size
     # Initial values.
-    x = x0
     T = T0
-    # Initial energy.
+    x = x0
     E = f(*x)
-    
     # Initialize best values.
     x_top = x
     E_top = E
@@ -189,7 +187,6 @@ def simulated_annealing(f, x0, bounds=None, T0=1., C=10., sigma=1.,
     # for the Multivariate Normal distribution.
     mu = zeros(N)
     cov = stats.Covariance.from_diagonal(sigma)
-
     # Random samples are pre-generated outside the main loop for the reasons
     # of speeding-up the code execution.
     # Pre-generated random samples from the Chi2 distribution with "nu" 
@@ -205,8 +202,9 @@ def simulated_annealing(f, x0, bounds=None, T0=1., C=10., sigma=1.,
     w = stats.multivariate_normal(mean=mu, cov=cov_fs).rvs(size=n_steps)
 
     k = 0
+    x_all = []
+    E_all = []
     early_stop = 0
-    x_all = []; E_all = []
     while T > eps:
         # Generate coordinates for the random walk.
         if k < burn:
@@ -271,7 +269,7 @@ def simulated_annealing(f, x0, bounds=None, T0=1., C=10., sigma=1.,
         if E < E_top:
             x_top = x_new
             E_top = E_new
-
+        
         # Collect results into arrays.
         x_all.append(x)
         E_all.append(E)
@@ -339,29 +337,29 @@ if __name__ == "__main__":
     # Initial point.
     x0 = [0., 2.]
     # Find minimum of the Rosenbrock's function.
-    res = simulated_annealing(
-        rosenbrock, x0, 
-        bounds=[(-2,5), (-2,5)], fs=0.1,
-        T0=1000., C=20, sigma=[0.4, 0.8], 
-        eps=1e-20, burn=50, verbose=True)
+    res = simulated_annealing(rosenbrock, x0, bounds=[(-2,5), (-2,5)], 
+                              fs=0.1, T0=10_000, C=50, sigma=[0.4, 0.8], 
+                              eps=1e-26, burn=50, verbose=True)
     print('Rosenbrock function [1, 1]:')
     print(f"Coordinates: {res['x'][0]:.4f}, {res['x'][1]:.4f}")
     print(f"Energy func.: {res['E']:.4e}\n")
+    # Plot optimization progress.
     plt.plot(res['x_all'])
-    plt.xlabel('Iterations')
-    plt.ylabel('x-values')
+    plt.xlabel('Steps')
+    plt.ylabel('Coordinate values')
+    plt.grid()
     plt.show()
     plt.semilogy(res['E_all'])
-    plt.xlabel('Iterations')
+    plt.xlabel('Steps')
     plt.ylabel('Energy func. value')
     plt.show()
 
     # Initial point.
     x0 = np.array([2.5, 0.])
     # Find minimum of the Beale's function.
-    res = simulated_annealing(beale, x0, bounds=[(0,6), (-3,3)],
-                              T0=1000., C=30., sigma=[0.8, 0.6], 
-                              eps=1e-24, fs=0.1, burn=200, verbose=True)
+    res = simulated_annealing(beale, x0, bounds=[(0,5), (-3,3)],
+                              T0=10_000, C=40, sigma=[0.8, 0.6], 
+                              eps=1e-24, fs=0.1, burn=100)
     print('Beale function [3, 0.5]:')
     print(f"Coordinates: {res['x'][0]:.4f}, {res['x'][1]:.4f}")
     print(f"Energy func.: {res['E']:.4e}\n")
